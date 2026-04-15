@@ -18,6 +18,30 @@ jobs:
             -d "parse_mode=HTML" \
             -d "text=🚀 <b>CI/CD Başladı – TestProcess</b>%0A%0ACommit: <code>$COMMIT_SHORT</code>%0ABranch: main%0ATetikleyen: ${{ github.actor }}"
 
+  build-backend:
+    name: Build Backend (.NET 10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Restore & Build
+        working-directory: test_project_api/test_project_api
+        run: dotnet build --configuration Release 2>&1 | tee /tmp/backend-build.log
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-error-log
+          path: /tmp/backend-build.log
+          retention-days: 1
+
   build-frontend:
     name: Build Frontend (React/Vite)
     runs-on: ubuntu-latest
@@ -64,11 +88,33 @@ jobs:
           retention-days: 1
 
   deploy:
-    name: Deploy to IIS (Windows Server)
-    needs: [build-frontend]
+    name: Deploy to Windows Server (IIS)
+    needs: [build-backend, build-frontend]
     runs-on: [self-hosted, Windows]
     if: success()
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish backend to IIS directory
+        shell: powershell
+        run: |
+          dotnet publish test_project_api/test_project_api/test_project_api.csproj `
+            --configuration Release `
+            --output C:\deploy\testprocess-api-new `
+            2>&1 | Tee-Object -FilePath C:\deploy\deploy-error.log
+
+      - name: Swap backend in IIS
+        shell: powershell
+        run: |
+          $target = "C:\inetpub\wwwroot\TestProcess-api"
+          if (Test-Path "$target-previous") { Remove-Item "$target-previous" -Recurse -Force }
+          if (Test-Path $target) { Copy-Item $target "$target-previous" -Recurse }
+          if (Test-Path $target) { Remove-Item "$target\*" -Recurse -Force }
+          else { New-Item -ItemType Directory -Path $target -Force | Out-Null }
+          Copy-Item "C:\deploy\testprocess-api-new\*" "$target\" -Recurse -Force
+          Remove-Item "C:\deploy\testprocess-api-new" -Recurse -Force
+          Write-Host "Backend deploy tamamlandı: $target"
+
       - name: Download frontend build
         uses: actions/download-artifact@v4
         with:
@@ -79,13 +125,11 @@ jobs:
         shell: powershell
         run: |
           $target = "C:\inetpub\wwwroot\TestProcess-Frontend"
-          if (Test-Path $target) {
-            Remove-Item "$target\*" -Recurse -Force
-          } else {
-            New-Item -ItemType Directory -Path $target -Force | Out-Null
-          }
+          if (Test-Path $target) { Remove-Item "$target\*" -Recurse -Force }
+          else { New-Item -ItemType Directory -Path $target -Force | Out-Null }
           Copy-Item "C:\deploy\testprocess-frontend-dist\*" "$target\" -Recurse -Force
-          Write-Host "Frontend IIS'e deploy edildi: $target"
+          Remove-Item "C:\deploy\testprocess-frontend-dist" -Recurse -Force
+          Write-Host "Frontend deploy tamamlandı: $target"
 
       - name: Upload deploy error log
         if: failure()
@@ -97,14 +141,18 @@ jobs:
 
   notify:
     name: Send Telegram Notification
-    needs: [build-frontend, deploy]
+    needs: [build-backend, build-frontend, deploy]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Determine status
         id: status
         run: |
-          if [ "${{ needs.build-frontend.result }}" = "failure" ]; then
+          if [ "${{ needs.build-backend.result }}" = "failure" ]; then
+            echo "result=failure" >> "$GITHUB_OUTPUT"
+            echo "component=Backend (.NET 10)" >> "$GITHUB_OUTPUT"
+            echo "artifact=backend-error-log" >> "$GITHUB_OUTPUT"
+          elif [ "${{ needs.build-frontend.result }}" = "failure" ]; then
             echo "result=failure" >> "$GITHUB_OUTPUT"
             echo "component=Frontend (React/Vite)" >> "$GITHUB_OUTPUT"
             echo "artifact=frontend-error-log" >> "$GITHUB_OUTPUT"
@@ -137,7 +185,7 @@ jobs:
           RESULT="${{ steps.status.outputs.result }}"
 
           if [ "$RESULT" = "success" ]; then
-            MESSAGE="✅ <b>CI BAŞARILI – TestProcess</b>%0A%0ACommit: <code>$COMMIT_SHORT</code> | Branch: main | Tetikleyen: $ACTOR%0A%0ATüm adımlar başarıyla tamamlandı. Frontend IIS'e deploy edildi.%0A%0A<a href=\"https://github.com/$REPO/actions/runs/$RUN_ID\">Detaylar</a>"
+            MESSAGE="✅ <b>CI BAŞARILI – TestProcess</b>%0A%0ACommit: <code>$COMMIT_SHORT</code> | Branch: main | Tetikleyen: $ACTOR%0A%0ABackend + Frontend IIS'e deploy edildi.%0A%0A<a href=\"https://github.com/$REPO/actions/runs/$RUN_ID\">Detaylar</a>"
           else
             ERROR_LOG="Hata logu indirilemedi."
             for f in /tmp/error-logs/*; do
