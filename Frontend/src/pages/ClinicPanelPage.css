@@ -1,0 +1,80 @@
+.cp-page { display: flex; min-height: calc(100vh - 60px); background: #f8fafc; }
+
+.cp-sidebar {
+  width: 240px; background: #1e293b; color: #fff;
+  padding: 28px 16px; display: flex; flex-direction: column; gap: 24px; flex-shrink: 0;
+}
+.cp-clinic-info { text-align: center; }
+.cp-clinic-img { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; margin-bottom: 10px; }
+.cp-clinic-name { font-size: 14px; font-weight: 700; }
+.cp-clinic-city { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.cp-badge { display: inline-block; background: #f59e0b; color: #fff; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; margin-top: 6px; }
+
+.cp-nav { display: flex; flex-direction: column; gap: 4px; }
+.cp-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  background: none; border: none; border-radius: 10px;
+  padding: 10px 14px; font-size: 14px; color: #94a3b8; cursor: pointer; text-align: left;
+  transition: all .15s;
+}
+.cp-nav-item:hover  { background: rgba(255,255,255,.08); color: #fff; }
+.cp-nav-item.active { background: rgba(59,130,246,.3); color: #93c5fd; font-weight: 600; }
+
+.cp-content { flex: 1; padding: 32px; overflow: auto; }
+.cp-title { font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 24px; }
+.cp-loading { text-align: center; padding: 80px; color: #64748b; }
+.cp-empty   { text-align: center; padding: 40px; color: #94a3b8; }
+
+.cp-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.cp-kpi { background: #fff; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.cp-kpi-val   { font-size: 24px; font-weight: 800; color: #1e293b; }
+.cp-kpi-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+.cp-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.cp-box { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e2e8f0; }
+.cp-box h3 { font-size: 15px; font-weight: 700; color: #1e293b; margin: 0 0 16px; }
+
+.cp-lead-statuses { display: flex; flex-direction: column; gap: 10px; }
+.cp-lead-status-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.cp-lead-status-row span:first-child { min-width: 90px; font-weight: 600; }
+.cp-status-bar-track { flex: 1; height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+.cp-status-bar-fill  { height: 100%; border-radius: 99px; }
+.cp-status-count { font-size: 12px; color: #64748b; min-width: 24px; text-align: right; }
+
+.cp-recent-leads { display: flex; flex-direction: column; gap: 10px; }
+.cp-recent-lead { display: flex; justify-content: space-between; align-items: flex-start; }
+.cp-rl-name      { font-size: 13px; font-weight: 600; color: #1e293b; }
+.cp-rl-treatment { font-size: 11px; color: #64748b; margin-top: 2px; }
+.cp-rl-status    { font-size: 12px; font-weight: 700; }
+
+.cp-campaigns h3 { margin-bottom: 12px; }
+.cp-campaign-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+.cp-campaign-title { flex: 1; color: #1e293b; font-weight: 500; }
+.cp-campaign-until { color: #64748b; }
+.cp-campaign-badge { background: #fef3c7; color: #92400e; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; }
+
+.cp-leads-table { display: flex; flex-direction: column; gap: 10px; }
+.cp-lead-row { background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.cp-lead-nm   { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+.cp-lead-meta { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+.cp-lead-msg  { font-size: 12px; color: #94a3b8; }
+.cp-lead-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.cp-lead-tier { font-size: 12px; font-weight: 600; }
+.cp-lead-st   { font-size: 12px; font-weight: 700; }
+.cp-lead-score { font-size: 11px; color: #94a3b8; }
+
+.cp-profile-grid { display: flex; flex-direction: column; gap: 12px; }
+.cp-profile-row { display: flex; gap: 16px; background: #fff; border-radius: 10px; padding: 14px 18px; border: 1px solid #e2e8f0; }
+.cp-profile-row label { font-size: 13px; font-weight: 600; color: #64748b; min-width: 120px; }
+.cp-profile-row span  { font-size: 14px; color: #1e293b; }
+
+.cp-campaign-card { background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 12px; }
+.cp-campaign-card .cp-campaign-title { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.cp-campaign-card .cp-campaign-desc  { font-size: 13px; color: #64748b; margin-bottom: 12px; }
+.cp-campaign-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #64748b; }
+
+@media (max-width: 768px) {
+  .cp-page { flex-direction: column; }
+  .cp-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 14px; }
+  .cp-two-col { grid-template-columns: 1fr; }
+}

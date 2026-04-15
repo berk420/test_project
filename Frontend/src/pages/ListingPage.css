@@ -1,4 +1,4 @@
-.listing-page { min-height: 100vh; }
+.listing-page { min-height: 100vh; background: #0f172a; }
 
 /* Hero */
 .listing-hero {
@@ -243,6 +243,27 @@
 
 .pagination button:hover:not(:disabled) { background: #334155; }
 .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.listing-onboarding-banner {
+  margin-top: 16px; display: inline-flex; align-items: center; gap: 10px;
+  background: rgba(59,130,246,.2); border: 1px solid rgba(59,130,246,.4);
+  border-radius: 20px; padding: 6px 16px; font-size: 13px; color: #93c5fd;
+}
+.listing-re-onboard {
+  background: none; border: 1px solid #60a5fa; color: #60a5fa;
+  border-radius: 20px; padding: 2px 10px; font-size: 12px; cursor: pointer;
+}
+.results-compare-btn {
+  background: #3b82f6; color: #fff; border: none;
+  border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background .15s;
+}
+.results-compare-btn:hover { background: #2563eb; }
+.filter-ai-btn {
+  width: 100%; background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff; border: none; border-radius: 10px; padding: 10px;
+  font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 8px;
+}
 
 @media (max-width: 900px) {
   .listing-body { grid-template-columns: 1fr; }

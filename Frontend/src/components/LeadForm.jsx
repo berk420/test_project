@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import "./LeadForm.css";
 
 export default function LeadForm({ clinic }) {
-  const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", message: "", country: "", treatmentType: "" });
   const [state, setState] = useState("idle"); // idle | loading | success | error
   const [error, setError] = useState("");
 
@@ -51,6 +51,17 @@ export default function LeadForm({ clinic }) {
       <div className="form-group">
         <label>E-posta</label>
         <input type="email" value={form.email} onChange={set("email")} placeholder="ornek@email.com" />
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label>Ülke</label>
+          <input value={form.country} onChange={set("country")} placeholder="Ülkeniz" />
+        </div>
+        <div className="form-group">
+          <label>Tedavi Türü</label>
+          <input value={form.treatmentType} onChange={set("treatmentType")} placeholder="örn. Saç Ekimi" />
+        </div>
       </div>
 
       <div className="form-group">

@@ -14,7 +14,7 @@ public class LeadsController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.Phone))
             return BadRequest(new { error = "Ad ve telefon zorunludur." });
 
-        if (!DataStore.Clinics.Any(c => c.Id == req.ClinicId))
+        if (req.ClinicId.HasValue && !DataStore.Clinics.Any(c => c.Id == req.ClinicId.Value))
             return NotFound(new { error = "Klinik bulunamadı." });
 
         var lead = DataStore.AddLead(req);
