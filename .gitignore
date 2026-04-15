@@ -1,0 +1,12 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node / Frontend
+node_modules/
+Frontend/dist/
+
+# Misc
+*.log
