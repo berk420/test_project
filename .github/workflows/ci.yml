@@ -152,14 +152,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Publish backend
+      - name: Prepare deploy directory
         shell: powershell
         run: |
           New-Item -ItemType Directory -Path C:\deploy -Force | Out-Null
-          dotnet publish test_project_api/test_project_api/test_project_api.csproj `
+          "" | Out-File -FilePath C:\deploy\deploy-error.log -Encoding utf8 -Force
+
+      - name: Publish backend
+        shell: powershell
+        run: |
+          $out = dotnet publish test_project_api/test_project_api/test_project_api.csproj `
             --configuration Release `
-            --output C:\deploy\testprocess-api-new `
-            2>&1 | Tee-Object -FilePath C:\deploy\deploy-error.log
+            --output C:\deploy\testprocess-api-new 2>&1
+          $out | Out-File -FilePath C:\deploy\deploy-error.log -Encoding utf8 -Append
+          $out | Write-Host
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Swap backend in IIS
         shell: powershell
@@ -197,26 +204,35 @@ jobs:
           path: C:\deploy\deploy-error.log
           retention-days: 3
 
-      - name: Telegram – deploy sonucu
-        if: always()
+      - name: Telegram – deploy başarılı
+        if: success()
         shell: powershell
         run: |
           $short = "${{ github.sha }}".Substring(0,7)
           $repo  = "${{ github.repository }}"
           $run   = "${{ github.run_id }}"
-          $actor = "${{ github.actor }}"
           $token = "${{ secrets.TELEGRAM_BOT_TOKEN }}"
           $chat  = "${{ secrets.TELEGRAM_CHAT_ID }}"
+          $msg   = "✅ <b>Deploy Tamamlandı – Medtravio</b>%0ACommit: <code>$short</code> | ${{ github.actor }}%0A%0ABackend + Frontend IIS'e alındı.%0A%0A<a href='https://github.com/$repo/actions/runs/$run'>Detaylar</a>"
+          Invoke-RestMethod -Uri "https://api.telegram.org/bot$token/sendMessage" `
+            -Method Post `
+            -Body @{ chat_id=$chat; text=$msg; parse_mode="HTML"; disable_web_page_preview="true" }
 
-          if ($env:DEPLOY_RESULT -ne "failure") {
-            $msg = "✅ <b>Deploy Tamamlandı – Medtravio</b>%0ACommit: <code>$short</code> | $actor%0A%0ABackend + Frontend IIS'e alındı.%0A%0A<a href='https://github.com/$repo/actions/runs/$run'>Detaylar</a>"
-          } else {
-            $log = ""
-            if (Test-Path "C:\deploy\deploy-error.log") {
-              $log = (Get-Content "C:\deploy\deploy-error.log" -Tail 30) -join "`n"
-            }
-            $msg = "❌ <b>Deploy Hatası – Medtravio</b>%0ACommit: <code>$short</code> | $actor%0A%0A<pre>$log</pre>%0A%0A<a href='https://github.com/$repo/actions/runs/$run'>Detaylar</a>"
+      - name: Telegram – deploy hatası
+        if: failure()
+        shell: powershell
+        run: |
+          $short = "${{ github.sha }}".Substring(0,7)
+          $repo  = "${{ github.repository }}"
+          $run   = "${{ github.run_id }}"
+          $token = "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          $chat  = "${{ secrets.TELEGRAM_CHAT_ID }}"
+          $log   = ""
+          if (Test-Path "C:\deploy\deploy-error.log") {
+            $log = (Get-Content "C:\deploy\deploy-error.log" -Tail 25 -ErrorAction SilentlyContinue) -join "`n"
+            $log = $log -replace '<','&lt;' -replace '>','&gt;'
           }
+          $msg = "❌ <b>Deploy Hatası – Medtravio</b>%0ACommit: <code>$short</code> | ${{ github.actor }}%0A%0A<pre>$log</pre>%0A%0A<a href='https://github.com/$repo/actions/runs/$run'>Detaylar</a>"
           Invoke-RestMethod -Uri "https://api.telegram.org/bot$token/sendMessage" `
             -Method Post `
             -Body @{ chat_id=$chat; text=$msg; parse_mode="HTML"; disable_web_page_preview="true" }
