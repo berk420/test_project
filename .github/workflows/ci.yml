@@ -5,19 +5,19 @@ on:
     branches: [main]
 
 jobs:
-  # ── 1. Başlangıç bildirimi (hemen çalışır) ──────────────────────────
+  # ── 1. Başlangıç bildirimi ───────────────────────────────────────────
   notify-start:
     name: Notify – CI Başladı
     runs-on: ubuntu-latest
     steps:
-      - name: Telegram – başladı
+      - name: Telegram
         run: |
           SHORT="${{ github.sha }}"
           SHORT="${SHORT:0:7}"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
-            -d text="🚀 <b>CI Başladı – Medtravio</b>%0ACommit: <code>$SHORT</code>%0ABranch: main | Tetikleyen: ${{ github.actor }}"
+            -d text="🚀 <b>CI Başladı – Medtravio</b>%0ACommit: <code>$SHORT</code> | ${{ github.actor }}"
 
   # ── 2. Backend build ─────────────────────────────────────────────────
   build-backend:
@@ -25,23 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
           dotnet-quality: 'preview'
-
-      - name: Restore & Build
+      - name: Build
         working-directory: test_project_api/test_project_api
-        run: dotnet build --configuration Release 2>&1 | tee /tmp/backend-build.log
-
-      - name: Upload error log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-error-log
-          path: /tmp/backend-build.log
-          retention-days: 3
+        run: dotnet build --configuration Release
 
   # ── 3. Frontend build ────────────────────────────────────────────────
   build-frontend:
@@ -49,37 +39,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: Frontend/package-lock.json
-
-      - name: npm ci
+      - name: Install
         working-directory: Frontend
         run: npm ci
-
       - name: Lint
         working-directory: Frontend
-        run: npm run lint 2>&1 | tee /tmp/lint.log || true
-
+        run: npm run lint || true
       - name: Build
         working-directory: Frontend
-        run: npm run build 2>&1 | tee /tmp/frontend-build.log
-
-      - name: Merge logs on failure
-        if: failure()
-        run: cat /tmp/lint.log /tmp/frontend-build.log > /tmp/frontend-error.log 2>/dev/null || true
-
-      - name: Upload error log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-error-log
-          path: /tmp/frontend-error.log
-          retention-days: 3
-
+        run: npm run build
       - name: Upload dist
         if: success()
         uses: actions/upload-artifact@v4
@@ -88,30 +61,14 @@ jobs:
           path: Frontend/dist
           retention-days: 1
 
-  # ── 4. Build sonucu Telegram (deploy beklemez!) ──────────────────────
+  # ── 4. Build sonucu Telegram ─────────────────────────────────────────
   notify-build:
     name: Notify – Build Sonucu
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Download hata logu (backend)
-        if: needs.build-backend.result == 'failure'
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-error-log
-          path: /tmp/error-logs/
-        continue-on-error: true
-
-      - name: Download hata logu (frontend)
-        if: needs.build-frontend.result == 'failure'
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-error-log
-          path: /tmp/error-logs/
-        continue-on-error: true
-
-      - name: Telegram – build sonucu
+      - name: Telegram
         run: |
           SHORT="${{ github.sha }}"
           SHORT="${SHORT:0:7}"
@@ -119,31 +76,20 @@ jobs:
           RUN="${{ github.run_id }}"
           BE="${{ needs.build-backend.result }}"
           FE="${{ needs.build-frontend.result }}"
-
-          BE_ICON="✅"
-          FE_ICON="✅"
-          [ "$BE" != "success" ] && BE_ICON="❌"
-          [ "$FE" != "success" ] && FE_ICON="❌"
-
+          [ "$BE" = "success" ] && BE_ICON="✅" || BE_ICON="❌"
+          [ "$FE" = "success" ] && FE_ICON="✅" || FE_ICON="❌"
           if [ "$BE" = "success" ] && [ "$FE" = "success" ]; then
-            HEADER="✅ <b>Build Başarılı – Medtravio</b>"
-            DETAIL="Backend ve Frontend başarıyla derlendi. Deploy başlıyor..."
+            TEXT="✅ <b>Build Başarılı – Medtravio</b>%0ACommit: <code>$SHORT</code> | ${{ github.actor }}%0A%0ABackend + Frontend derlendi, deploy başlıyor...%0A<a href='https://github.com/$REPO/actions/runs/$RUN'>Detaylar</a>"
           else
-            HEADER="❌ <b>Build Hatası – Medtravio</b>"
-            ERROR_LOG=""
-            for f in /tmp/error-logs/*; do
-              [ -f "$f" ] && ERROR_LOG=$(tail -c 1800 "$f") && break
-            done
-            DETAIL="${BE_ICON} Backend: $BE%0A${FE_ICON} Frontend: $FE%0A%0A<pre>$(echo "$ERROR_LOG" | sed 's/[<>]/./g')</pre>"
+            TEXT="❌ <b>Build Hatası – Medtravio</b>%0ACommit: <code>$SHORT</code> | ${{ github.actor }}%0A%0A${BE_ICON} Backend: $BE%0A${FE_ICON} Frontend: $FE%0A%0A<a href='https://github.com/$REPO/actions/runs/$RUN'>Hata logları için tıkla</a>"
           fi
-
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            -d text="${HEADER}%0ACommit: <code>$SHORT</code> | ${{ github.actor }}%0A%0A${DETAIL}%0A%0A<a href='https://github.com/$REPO/actions/runs/$RUN'>Detaylar</a>"
+            -d text="$TEXT"
 
-  # ── 5. Deploy (self-hosted Windows runner) ───────────────────────────
+  # ── 5. Deploy (self-hosted Windows) ──────────────────────────────────
   deploy:
     name: Deploy to IIS
     needs: [build-backend, build-frontend]
@@ -152,39 +98,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare deploy directory
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Path C:\deploy -Force | Out-Null
-          "" | Out-File -FilePath C:\deploy\deploy-error.log -Encoding utf8 -Force
+      - name: Create deploy dir
+        shell: cmd
+        run: if not exist C:\deploy mkdir C:\deploy
 
       - name: Publish backend
-        shell: powershell
-        run: |
-          $out = dotnet publish test_project_api/test_project_api/test_project_api.csproj `
-            --configuration Release `
-            --output C:\deploy\testprocess-api-new 2>&1
-          $out | Out-File -FilePath C:\deploy\deploy-error.log -Encoding utf8 -Append
-          $out | Write-Host
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        shell: cmd
+        run: dotnet publish test_project_api\test_project_api\test_project_api.csproj --configuration Release --output C:\deploy\api-new
 
       - name: Swap backend in IIS
         shell: powershell
         run: |
           $target = "C:\inetpub\wwwroot\TestProcess-api"
-          if (Test-Path "$target-previous") { Remove-Item "$target-previous" -Recurse -Force -ErrorAction SilentlyContinue }
-          if (Test-Path $target) { Copy-Item $target "$target-previous" -Recurse -Force }
-          if (Test-Path $target) { Remove-Item "$target\*" -Recurse -Force }
-          else { New-Item -ItemType Directory -Path $target -Force | Out-Null }
-          Copy-Item "C:\deploy\testprocess-api-new\*" "$target\" -Recurse -Force
-          Remove-Item "C:\deploy\testprocess-api-new" -Recurse -Force
-          Write-Host "Backend deploy OK: $target"
+          if (Test-Path "$target-prev") { Remove-Item "$target-prev" -Recurse -Force }
+          if (Test-Path $target)        { Rename-Item $target "$target-prev" -Force }
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Copy-Item "C:\deploy\api-new\*" $target -Recurse -Force
+          Remove-Item "C:\deploy\api-new" -Recurse -Force
 
       - name: Download frontend dist
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: C:\deploy\testprocess-frontend-dist
+          path: C:\deploy\frontend-dist
 
       - name: Deploy frontend to IIS
         shell: powershell
@@ -192,47 +128,17 @@ jobs:
           $target = "C:\inetpub\wwwroot\TestProcess-Frontend"
           if (Test-Path $target) { Remove-Item "$target\*" -Recurse -Force }
           else { New-Item -ItemType Directory -Path $target -Force | Out-Null }
-          Copy-Item "C:\deploy\testprocess-frontend-dist\*" "$target\" -Recurse -Force
-          Remove-Item "C:\deploy\testprocess-frontend-dist" -Recurse -Force
-          Write-Host "Frontend deploy OK: $target"
-
-      - name: Upload deploy error log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: deploy-error-log
-          path: C:\deploy\deploy-error.log
-          retention-days: 3
+          Copy-Item "C:\deploy\frontend-dist\*" $target -Recurse -Force
+          Remove-Item "C:\deploy\frontend-dist" -Recurse -Force
 
       - name: Telegram – deploy başarılı
         if: success()
-        shell: powershell
+        shell: cmd
         run: |
-          $short = "${{ github.sha }}".Substring(0,7)
-          $repo  = "${{ github.repository }}"
-          $run   = "${{ github.run_id }}"
-          $token = "${{ secrets.TELEGRAM_BOT_TOKEN }}"
-          $chat  = "${{ secrets.TELEGRAM_CHAT_ID }}"
-          $msg   = "✅ <b>Deploy Tamamlandı – Medtravio</b>%0ACommit: <code>$short</code> | ${{ github.actor }}%0A%0ABackend + Frontend IIS'e alındı.%0A%0A<a href='https://github.com/$repo/actions/runs/$run'>Detaylar</a>"
-          Invoke-RestMethod -Uri "https://api.telegram.org/bot$token/sendMessage" `
-            -Method Post `
-            -Body @{ chat_id=$chat; text=$msg; parse_mode="HTML"; disable_web_page_preview="true" }
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" -d "parse_mode=HTML" -d "disable_web_page_preview=true" -d "text=%E2%9C%85 Deploy Tamamlandi - Medtravio%0ACommit: ${{ github.sha }} | ${{ github.actor }}%0ABackend ve Frontend IIS'e alindi.%0Ahttps://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Telegram – deploy hatası
         if: failure()
-        shell: powershell
+        shell: cmd
         run: |
-          $short = "${{ github.sha }}".Substring(0,7)
-          $repo  = "${{ github.repository }}"
-          $run   = "${{ github.run_id }}"
-          $token = "${{ secrets.TELEGRAM_BOT_TOKEN }}"
-          $chat  = "${{ secrets.TELEGRAM_CHAT_ID }}"
-          $log   = ""
-          if (Test-Path "C:\deploy\deploy-error.log") {
-            $log = (Get-Content "C:\deploy\deploy-error.log" -Tail 25 -ErrorAction SilentlyContinue) -join "`n"
-            $log = $log -replace '<','&lt;' -replace '>','&gt;'
-          }
-          $msg = "❌ <b>Deploy Hatası – Medtravio</b>%0ACommit: <code>$short</code> | ${{ github.actor }}%0A%0A<pre>$log</pre>%0A%0A<a href='https://github.com/$repo/actions/runs/$run'>Detaylar</a>"
-          Invoke-RestMethod -Uri "https://api.telegram.org/bot$token/sendMessage" `
-            -Method Post `
-            -Body @{ chat_id=$chat; text=$msg; parse_mode="HTML"; disable_web_page_preview="true" }
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" -d "parse_mode=HTML" -d "disable_web_page_preview=true" -d "text=%E2%9D%8C Deploy Hatasi - Medtravio%0ACommit: ${{ github.sha }} | ${{ github.actor }}%0AHata detaylari icin:%0Ahttps://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
