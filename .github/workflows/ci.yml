@@ -51,3 +51,52 @@ jobs:
         with:
           name: frontend
           path: BerberFrontend/dist
+
+  deploy:
+    name: Deploy to IIS
+    needs: [build-api, build-frontend]
+    runs-on: [self-hosted, Windows]
+    if: github.ref == 'refs/heads/claude/barber-booking-service-dwlfd' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Download API artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api
+          path: C:\deploy\berber-api
+
+      - name: Download Frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: C:\deploy\berber-frontend
+
+      - name: Deploy API to IIS
+        shell: powershell
+        run: |
+          $target = "C:\inetpub\wwwroot\BerberApi"
+          if (Test-Path "$target-prev") { Remove-Item "$target-prev" -Recurse -Force }
+          if (Test-Path $target)        { Rename-Item $target "$target-prev" -Force }
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Copy-Item "C:\deploy\berber-api\*" $target -Recurse -Force
+          Remove-Item "C:\deploy\berber-api" -Recurse -Force
+
+      - name: Deploy Frontend to IIS
+        shell: powershell
+        run: |
+          $target = "C:\inetpub\wwwroot\BerberFrontend"
+          if (Test-Path $target) { Remove-Item "$target\*" -Recurse -Force }
+          else { New-Item -ItemType Directory -Path $target -Force | Out-Null }
+          Copy-Item "C:\deploy\berber-frontend\*" $target -Recurse -Force
+          Remove-Item "C:\deploy\berber-frontend" -Recurse -Force
+
+      - name: Telegram – Deploy OK
+        if: success()
+        shell: cmd
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" -d "parse_mode=HTML" -d "text=%E2%9C%85 Berber Sepeti Deploy Tamam%0ACommit: ${{ github.sha }} | ${{ github.actor }}%0AAPI + Frontend IIS'e alindi."
+
+      - name: Telegram – Deploy Fail
+        if: failure()
+        shell: cmd
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" -d "parse_mode=HTML" -d "text=%E2%9D%8C Berber Sepeti Deploy Hatasi%0ACommit: ${{ github.sha }} | ${{ github.actor }}%0Ahttps://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
